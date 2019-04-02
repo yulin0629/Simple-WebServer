@@ -47,6 +47,37 @@ int main(void) {
         return 1;
     }
     
+    struct sockaddr_in client;
+    socklen_t len;
+    len = sizeof(client);
+    int connect_socket;
+    int n;
+    char inbuf[2048];
+    char buf[2048];
+    while(1){
+        connect_socket = accept(mainSocket, (struct sockaddr *)&client, &len);
+        if (connect_socket < 0) {
+            printf("accept\n");
+            break;
+        }
+
+        n = read(connect_socket, inbuf, sizeof(inbuf));
+        write(fileno(stdout), inbuf, n);
+        if (n > 0) {
+            memset(buf, 0, sizeof(buf));
+            snprintf(buf, sizeof(buf),
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: text/html\r\n"
+                            "\r\n"
+                            "<html>\r\n"
+                            "<h1>Yulin Wang</h1>\r\n"
+                            "</html\r\n");
+            write(connect_socket, buf, sizeof(buf));
+        }
+
+        close(connect_socket);        
+    }
+    
 
     close(mainSocket);
     return 0;
