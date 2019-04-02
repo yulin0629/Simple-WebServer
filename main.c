@@ -7,6 +7,20 @@
 
 char portNumber[] = "80";
 
+int readPageFile(char name[], char *buf, int bufferSize)
+{
+    FILE *f = fopen(name, "rb");
+    int fLength;
+    if (f)
+    {
+        memset(buf, 0, bufferSize);
+        fLength = fread(buf, 1, bufferSize, f);
+        fclose(f);
+    }
+
+    return fLength;
+}
+
 int main(void) {
     
     struct addrinfo *pRes, hints;
@@ -65,17 +79,9 @@ int main(void) {
         }
 
         n = read(connect_socket, inbuf, sizeof(inbuf));
-        write(fileno(stdout), inbuf, n);
         if (n > 0) {
-           
-            FILE *f = fopen("index.html", "rb");
-            int fLength;
-            if (f) {
-                 memset(buf, 0, sizeof(buf));
-                 fLength = fread(buf, 1, sizeof(buf), f);
-                 fclose(f);
-            }
-            
+            write(fileno(stdout), inbuf, n);
+            readPageFile("index.html", buf, sizeof(buf));
             write(connect_socket, buf, sizeof(buf));
         }
 
