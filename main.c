@@ -35,6 +35,9 @@ int main(void) {
         return -1;
     }
 
+    int yes = 1;
+    setsockopt(mainSocket, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes, sizeof(yes));
+
     if (bind(mainSocket, pRes->ai_addr, pRes->ai_addrlen) != 0) {
         printf("Bind error! Port can't not be binded.\n");
         return -1;
