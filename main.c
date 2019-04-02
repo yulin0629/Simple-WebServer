@@ -65,11 +65,12 @@ int main(void) {
         write(fileno(stdout), inbuf, n);
         if (n > 0) {
            
-            FILE *f = fopen("404.html", "rb");
+            FILE *f = fopen("index.html", "rb");
             int fLength;
             if (f) {
                  memset(buf, 0, sizeof(buf));
                  fLength = fread(buf, 1, sizeof(buf), f);
+                 fclose(f);
             }
             
             write(connect_socket, buf, sizeof(buf));
