@@ -64,14 +64,14 @@ int main(void) {
         n = read(connect_socket, inbuf, sizeof(inbuf));
         write(fileno(stdout), inbuf, n);
         if (n > 0) {
-            memset(buf, 0, sizeof(buf));
-            snprintf(buf, sizeof(buf),
-                            "HTTP/1.1 200 OK\r\n"
-                            "Content-Type: text/html\r\n"
-                            "\r\n"
-                            "<html>\r\n"
-                            "<h1>Yulin Wang</h1>\r\n"
-                            "</html\r\n");
+           
+            FILE *f = fopen("404.html", "rb");
+            int fLength;
+            if (f) {
+                 memset(buf, 0, sizeof(buf));
+                 fLength = fread(buf, 1, sizeof(buf), f);
+            }
+            
             write(connect_socket, buf, sizeof(buf));
         }
 
