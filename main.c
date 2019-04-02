@@ -19,7 +19,7 @@ int readPageFile(char name[], char *buf, int bufferSize) {
   return fLength;
 }
 
-int main(void) {
+int bindSocketToPort(int *mainSocket, char portNumber[]) {
   struct addrinfo *pRes, hints;
   int err;
 
@@ -33,44 +33,45 @@ int main(void) {
 
   if (err != 0) {
     printf("getaddrinfo : %s\n", gai_strerror(err));
-    return 1;
+    return -1;
   }
 
-  // Open socket
-  int mainSocket;
+  *mainSocket = socket(pRes->ai_family, pRes->ai_socktype, 0);
 
-  mainSocket = socket(pRes->ai_family, pRes->ai_socktype, 0);
-
-  if (mainSocket < 0) {
+  if (*mainSocket < 0) {
     printf("Open main socket failed\n");
-    return -1;
+    return -2;
   }
 
   int yes = 1;
-  setsockopt(mainSocket, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
+  setsockopt(*mainSocket, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
              sizeof(yes));
 
-  if (bind(mainSocket, pRes->ai_addr, pRes->ai_addrlen) != 0) {
+  if (bind(*mainSocket, pRes->ai_addr, pRes->ai_addrlen) != 0) {
     printf("Bind error! Port can't not be binded.\n");
-    return -1;
+    return -3;
   }
 
   freeaddrinfo(pRes);
 
-  if (listen(mainSocket, 5) != 0) {
+  if (listen(*mainSocket, 5) != 0) {
     printf("listen port Error\n");
-    return 1;
+    return -4;
   }
 
+  return 0;
+}
+
+void listening(int mainSocket) {
+  int connect_socket;
   struct sockaddr_in client;
   socklen_t len;
   len = sizeof(client);
-  int connect_socket;
+  
   int n;
   char inbuf[2048];
   char buf[2048];
   char buf404[2048];
-
   int pageFileSize = 0;
 
   readPageFile("404.html", buf404, sizeof(buf404));
@@ -85,6 +86,7 @@ int main(void) {
     n = read(connect_socket, inbuf, sizeof(inbuf));
     if (n > 0) {
       write(fileno(stdout), inbuf, n);
+
       pageFileSize = readPageFile("index.html", buf, sizeof(buf));
 
       if (pageFileSize > 0) {
@@ -96,6 +98,17 @@ int main(void) {
 
     close(connect_socket);
   }
+}
+
+int main(void) {
+  // Open socket
+  int mainSocket;
+  int error = bindSocketToPort(&mainSocket, portNumber);
+  if (error < 0) {
+    return error;
+  }
+  
+  listening(mainSocket);
 
   close(mainSocket);
   return 0;
