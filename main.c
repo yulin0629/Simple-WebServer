@@ -24,19 +24,7 @@ int main(void) {
         printf("getaddrinfo : %s\n", gai_strerror(err));
         return 1;
     }
-
-    printf("AF_UNSPEC %d\n", AF_UNSPEC);
-    printf("AF_INET %d\n", AF_INET);
-    printf("hints.ai_family %d \n", hints.ai_family);
     
-    struct addrinfo *pAddrInfo = pRes;
-    do
-    {
-        printf("pRes->ai_family %d \n", pAddrInfo->ai_family);
-    } while (pAddrInfo = pAddrInfo->ai_next);
-    
-    
-
     // Open socket
     int mainSocket;
 
@@ -46,6 +34,19 @@ int main(void) {
         printf("Open main socket failed\n");
         return -1;
     }
+
+    if (bind(mainSocket, pRes->ai_addr, pRes->ai_addrlen) != 0) {
+        printf("Bind error! Port can't not be binded.\n");
+        return -1;
+    }
+
+    freeaddrinfo(pRes);
+    
+    if (listen(mainSocket, 5) != 0) {
+        printf("listen port Error\n");
+        return 1;
+    }
+    
 
     close(mainSocket);
     return 0;
