@@ -76,6 +76,12 @@ int main(void)
     int n;
     char inbuf[2048];
     char buf[2048];
+    char buf404[2048];
+
+    int pageFileSize = 0;
+
+    readPageFile("404.html", buf404, sizeof(buf404));
+
     while (1)
     {
         connect_socket = accept(mainSocket, (struct sockaddr *)&client, &len);
@@ -89,8 +95,15 @@ int main(void)
         if (n > 0)
         {
             write(fileno(stdout), inbuf, n);
-            readPageFile("index.html", buf, sizeof(buf));
-            write(connect_socket, buf, sizeof(buf));
+            pageFileSize = readPageFile("index.html", buf, sizeof(buf));
+
+            if (pageFileSize > 0) {
+                write(connect_socket, buf, sizeof(buf));
+            } else {
+                write(connect_socket, buf404, sizeof(buf404));
+            }
+            
+            
         }
 
         close(connect_socket);
