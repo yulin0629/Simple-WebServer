@@ -1,11 +1,45 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 char portNumber[] = "80";
+
+typedef struct _HTTPHeader {
+  char *method;
+  char *host;
+  char *path;
+} HTTPHeader;
+
+int getHeaderLine(char **pointer, int lineNumber, char *inbuf, int size) {
+  int lineStart = 0;
+  int counter = 0;
+
+  for(int index = 0; index < size; index++)
+  {
+    if (inbuf[index] == '\n') {
+      if (lineNumber == counter) {
+        int size = index - lineStart;
+        *pointer = (char *)malloc(size);
+        memcpy(*pointer, &inbuf[lineStart], size);
+        (*pointer)[size-1] = '\0';
+        return 0;
+      }
+      else {
+        lineStart = index + 1;
+        counter++;
+        if(lineStart >= size) {
+          return -1;
+        }
+      }
+    }
+  }
+  
+  return -2;
+}
 
 int readPageFile(char name[], char *buf, int bufferSize) {
   FILE *f = fopen(name, "rb");
@@ -17,6 +51,35 @@ int readPageFile(char name[], char *buf, int bufferSize) {
   }
 
   return fLength;
+}
+
+int getPathFromHeader(char **path, char line[], int HTTPMethodLength) {
+  int counter = HTTPMethodLength;
+  while(line[counter] != '\0'){
+    if (line[counter] == ' '){
+      int size = counter - HTTPMethodLength + 1;
+      *path = malloc(size);
+      memcpy(*path, &(line[HTTPMethodLength]), size);
+      (*path)[size-1] = '\0';
+      return 0;
+    }
+    
+    counter++;
+  }
+  
+  return -1;
+}
+
+int getValueFromHeader(char **value, char line[], int startFrom) {
+  int endedTo = startFrom;
+  while(line[endedTo] != '\0'){
+    endedTo++;
+  }
+  int size = endedTo - startFrom + 1;
+  *value = malloc(size);
+  memcpy(*value, &(line[startFrom]), size);
+  (*value)[size-1] = '\0';
+  return 0;
 }
 
 int bindSocketToPort(int *mainSocket, char portNumber[]) {
@@ -44,8 +107,7 @@ int bindSocketToPort(int *mainSocket, char portNumber[]) {
   }
 
   int yes = 1;
-  setsockopt(*mainSocket, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
-             sizeof(yes));
+  setsockopt(*mainSocket, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes, sizeof(yes));
 
   if (bind(*mainSocket, pRes->ai_addr, pRes->ai_addrlen) != 0) {
     printf("Bind error! Port can't not be binded.\n");
@@ -85,15 +147,49 @@ void listening(int mainSocket) {
 
     n = read(connect_socket, inbuf, sizeof(inbuf));
     if (n > 0) {
-      write(fileno(stdout), inbuf, n);
+      HTTPHeader head;
+      head.method = "GET";
 
-      pageFileSize = readPageFile("index.html", buf, sizeof(buf));
+      char *line = NULL;
+      int lineIndex = 0;
+      while(getHeaderLine(&line, lineIndex, inbuf, n) == 0) {
+        if (line) {
+          if (strncmp(line, "GET", 3) == 0) {
+            char *path = NULL;
+            getPathFromHeader(&path, line, sizeof("GET"));
+            head.path = path;
+          }
+          else if(strncmp(line, "Host:", 5) == 0) {
+            char *host = NULL;
+            getValueFromHeader(&host, line, sizeof("Host:"));
+            head.host = host;
+          }
+          free(line);
+          lineIndex++;
+        }
+        else {
+          break;
+        }
+      }
 
-      if (pageFileSize > 0) {
+      char fullpath[2048];
+      sprintf(fullpath, "%s%s", head.host, head.path);
+      printf("Access: %s \n", fullpath);
+      fflush(stdout);
+
+      if (
+        strncmp(head.path, "/", sizeof("/")) == 0
+        || strncmp(head.path, "/index.html", sizeof("/index.html")) == 0
+      ) {
+        pageFileSize = readPageFile("index.html", buf, sizeof(buf));
         write(connect_socket, buf, sizeof(buf));
-      } else {
+      }
+      else {
         write(connect_socket, buf404, sizeof(buf404));
       }
+
+      free(head.path);
+      free(head.host);
     }
 
     close(connect_socket);
