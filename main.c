@@ -9,6 +9,7 @@
 
 char portNumber[] = "80";
 char buf404[2048];
+int number = 0;
 
 #define IS_MATCH_PATH(path, routeString) \
   (strncmp(path, routeString, sizeof(routeString)) == 0)
@@ -131,14 +132,14 @@ int bindSocketToPort(int *mainSocket, char portNumber[]) {
 void responseHeader(int connect_socket, int httpStatusCode) {
   int sizeOfHeader = sizeof(
       "HTTP/1.1 200\r\nContent-Type: text/html\r\nContent-Length: "
-      "1000\r\n\r\n");
+      "1000\r\nSet-Cookie: 1\r\n\r\n");
   char buf[sizeOfHeader];
   memset(buf, 0, sizeOfHeader);
 
-  snprintf(
-      buf, sizeOfHeader,
-      "HTTP/1.1 %d\r\nContent-Type: text/html\r\nContent-Length: 1000\r\n\r\n",
-      httpStatusCode);
+  snprintf(buf, sizeOfHeader,
+           "HTTP/1.1 %d\r\nContent-Type: text/html\r\nContent-Length: "
+           "1000\r\nSet-Cookie: %d\r\n\r\n",
+           httpStatusCode, number % 10);
 
   write(connect_socket, buf, sizeOfHeader);
 }
@@ -169,6 +170,11 @@ void listening(int connect_socket) {
           char *host = NULL;
           getValueFromHeader(&host, line, sizeof("Host:"));
           head.host = host;
+        } else if (strncmp(line, "Cookie:", sizeof("Cookie:") - 1) == 0) {
+          char *cookieValue = NULL;
+          getValueFromHeader(&cookieValue, line, sizeof("Cookie:"));
+          number = (int)cookieValue[0] - 0x30;
+          number++;
         }
         free(line);
         lineIndex++;
@@ -191,7 +197,7 @@ void listening(int connect_socket) {
       char pageBuffer[2048];
       memset(pageBuffer, 0, sizeof(pageBuffer));
 
-      renderCountingPage(pageBuffer, sizeof(pageBuffer));
+      renderCountingPage(pageBuffer, sizeof(pageBuffer), number);
 
       responseHeader(connect_socket, 200);
       write(connect_socket, pageBuffer, sizeof(pageBuffer));
