@@ -1,2 +1,2 @@
 all:
-	gcc main.c -o WebServer
+	gcc main.c countingPage.c -o WebServer

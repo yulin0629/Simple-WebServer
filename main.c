@@ -5,8 +5,11 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "countingPage.h"
 
 char portNumber[] = "80";
+
+#define IS_MATCH_PATH(path, routeString) (strncmp(path, routeString, sizeof(routeString)) == 0)
 
 typedef struct _HTTPHeader {
   char *method;
@@ -124,11 +127,19 @@ int bindSocketToPort(int *mainSocket, char portNumber[]) {
   return 0;
 }
 
+void responseHeader(int connect_socket, int httpStatusCode) {
+  int sizeOfHeader = sizeof("HTTP/1.1 200\r\nContent-Type: text/html\r\n\r\n");
+  char buf[sizeOfHeader];
+  memset(buf, 0, sizeOfHeader);
+
+  snprintf(buf, sizeOfHeader, "HTTP/1.1 %d\r\nContent-Type: text/html\r\n\r\n", httpStatusCode);
+
+  write(connect_socket, buf, sizeOfHeader);
+}
+
 void listening(int mainSocket) {
   int connect_socket;
-  struct sockaddr_in client;
-  socklen_t len;
-  len = sizeof(client);
+  
   
   int n;
   char inbuf[2048];
@@ -139,12 +150,19 @@ void listening(int mainSocket) {
   readPageFile("404.html", buf404, sizeof(buf404));
 
   while (1) {
+    fflush(stdout);
+
+    struct sockaddr_in client;
+    socklen_t len;
+    len = sizeof(client);
+    
     connect_socket = accept(mainSocket, (struct sockaddr *)&client, &len);
     if (connect_socket < 0) {
-      printf("accept\n");
+      printf("Accept failed\n");
       break;
     }
 
+    memset(inbuf, 0, sizeof(inbuf));
     n = read(connect_socket, inbuf, sizeof(inbuf));
     if (n > 0) {
       HTTPHeader head;
@@ -178,13 +196,23 @@ void listening(int mainSocket) {
       fflush(stdout);
 
       if (
-        strncmp(head.path, "/", sizeof("/")) == 0
-        || strncmp(head.path, "/index.html", sizeof("/index.html")) == 0
+        IS_MATCH_PATH(head.path, "/")
+        || IS_MATCH_PATH(head.path, "/index.html")
       ) {
         pageFileSize = readPageFile("index.html", buf, sizeof(buf));
+        responseHeader(connect_socket, 200);
         write(connect_socket, buf, sizeof(buf));
+      }else if (IS_MATCH_PATH(head.path, "/countingPage")) {
+        char pageBuffer[2048];
+				memset(pageBuffer, 0, sizeof(pageBuffer));
+
+        renderCountingPage(pageBuffer, sizeof(pageBuffer));
+				
+				responseHeader(connect_socket, 200);
+				write( connect_socket, pageBuffer, sizeof(pageBuffer));
       }
       else {
+        responseHeader(connect_socket, 404);
         write(connect_socket, buf404, sizeof(buf404));
       }
 
